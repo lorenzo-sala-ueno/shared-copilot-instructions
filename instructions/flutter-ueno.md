@@ -270,6 +270,14 @@
 # Riverpod Rules
 
 ### Using Ref in Riverpod
+0. Installation
+```flutter pub add flutter_riverpod
+flutter pub add riverpod_annotation
+flutter pub add dev:riverpod_generator
+flutter pub add dev:build_runner
+flutter pub add dev:custom_lint
+flutter pub add dev:riverpod_lint
+```
 1. The `Ref` object is essential for accessing the provider system, reading or watching other providers, managing lifecycles, and handling dependencies in Riverpod.
 2. In functional providers, obtain `Ref` as a parameter; in class-based providers, access it as a property of the Notifier.
 3. In widgets, use `WidgetRef` (a subtype of `Ref`) to interact with providers.
