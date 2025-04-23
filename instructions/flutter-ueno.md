@@ -294,13 +294,13 @@ flutter pub add dev:riverpod_lint
 7. Example: Provider with @riverpod annotation
    ```dart
    @riverpod
-   int example(ref) {
+   int example(Ref ref) {
      return 0;
    }
    ```
 8. Example: Using Ref for cleanup
    ```dart
-   final provider = StreamProvider<int>((ref) {
+   final provider = StreamProvider<int>((Ref ref) {
      final controller = StreamController<int>();
      ref.onDispose(controller.close);
      return controller.stream;
