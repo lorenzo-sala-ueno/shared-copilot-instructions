@@ -54,6 +54,18 @@
 4. Prefer making fields and top-level variables `final`.
 5. Consider making your constructor `const` if the class supports it.
 6. Prefer making declarations private.
+7. Always use barrel files.  
+    Barrel files are files that re-export a collection of other files, making it easier to import related functionality. For example, instead of importing multiple files individually, you can create a `widgets.dart` file that exports all widget files in a directory:
+    ```dart
+    // widgets.dart
+    export 'button.dart';
+    export 'card.dart';
+    export 'form.dart';
+    ```
+    Then, you can import all widgets with a single statement:
+    ```dart
+    import 'widgets/widgets.dart';
+    ```
 
 ### Usage
 1. Use strings in `part of` directives.
