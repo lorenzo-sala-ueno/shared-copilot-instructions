@@ -105,7 +105,7 @@
 3. Keep build methods simple and focused.
 
 ### State Management
-1. Choose Riverpod as the default state management solution.
+1. Choose bloc as the default state management.
 2. Avoid unnecessary `StatefulWidget`s.
 3. Keep state as local as possible.
 
@@ -279,252 +279,128 @@
 19. Extension types can wrap records but do not provide full abstraction or protection.
 20. Records are best for simple, immutable data aggregation; use classes for abstraction, encapsulation, and behavior.
 
-# Riverpod Rules
+# Common Flutter Errors
 
-### Using Ref in Riverpod
-0. Installation
-```flutter pub add flutter_riverpod
-flutter pub add riverpod_annotation
-flutter pub add dev:riverpod_generator
-flutter pub add dev:build_runner
-flutter pub add dev:custom_lint
-flutter pub add dev:riverpod_lint
-```
-1. The `Ref` object is essential for accessing the provider system, reading or watching other providers, managing lifecycles, and handling dependencies in Riverpod.
-2. In functional providers, obtain `Ref` as a parameter; in class-based providers, access it as a property of the Notifier.
-3. In widgets, use `WidgetRef` (a subtype of `Ref`) to interact with providers.
-4. The `@riverpod` annotation is used to define providers with code generation, where the function receives `ref` as its parameter.
-5. Use `ref.watch` to reactively listen to other providers; use `ref.read` for one-time access (non-reactive); use `ref.listen` for imperative subscriptions; use `ref.onDispose` to clean up resources.
-6. Example: Functional provider with Ref
-   ```dart
-   final otherProvider = Provider<int>((ref) => 0);
-   final provider = Provider<int>((ref) {
-     final value = ref.watch(otherProvider);
-     return value * 2;
-   });
-   ```
-7. Example: Provider with @riverpod annotation
-   ```dart
-   @riverpod
-   int example(Ref ref) {
-     return 0;
-   }
-   ```
-8. Example: Using Ref for cleanup
-   ```dart
-   final provider = StreamProvider<int>((Ref ref) {
-     final controller = StreamController<int>();
-     ref.onDispose(controller.close);
-     return controller.stream;
-   });
-   ```
-9. Example: Using WidgetRef in a widget
-   ```dart
-   class MyWidget extends ConsumerWidget {
-     @override
-     Widget build(BuildContext context, WidgetRef ref) {
-       final value = ref.watch(myProvider);
-       return Text('$value');
-     }
-   }
-   ```
+1. If you get a "RenderFlex overflowed" error, check if a `Row` or `Column` contains unconstrained widgets. Fix by wrapping children in `Flexible`, `Expanded`, or by setting constraints.
+2. If you get "Vertical viewport was given unbounded height", ensure `ListView` or similar scrollable widgets inside a `Column` have a bounded height (e.g., wrap with `Expanded` or `SizedBox`).
+3. If you get "An InputDecorator...cannot have an unbounded width", constrain the width of widgets like `TextField` using `Expanded`, `SizedBox`, or by placing them in a parent with width constraints.
+4. If you get a "setState called during build" error, do not call `setState` or `showDialog` directly inside the build method. Trigger dialogs or state changes in response to user actions or after the build completes (e.g., using `addPostFrameCallback`).
+5. If you get "The ScrollController is attached to multiple scroll views", make sure each `ScrollController` is only attached to a single scrollable widget at a time.
+6. If you get a "RenderBox was not laid out" error, check for missing or unbounded constraints in your widget tree. This is often caused by using widgets like `ListView` or `Column` without proper size constraints.
+7. Use the Flutter Inspector and review widget constraints to debug layout issues. Refer to the official documentation on constraints if needed.
+# Bloc Rules
 
-### Combining Requests
-1. Use the `Ref` object to combine providers and requests; all providers have access to a `Ref`.
-2. In functional providers, obtain `Ref` as a parameter; in class-based providers, access it as a property of the Notifier.
-3. Prefer using `ref.watch` to combine requests, as it enables reactive and declarative logic that automatically recomputes when dependencies change.
-4. When using `ref.watch` with asynchronous providers, use `.future` to await the value if you need the resolved result, otherwise you will receive an `AsyncValue`.
-5. Avoid calling `ref.watch` inside imperative code (e.g., listener callbacks or Notifier methods); only use it during the build phase of the provider.
-6. Use `ref.listen` as an alternative to `ref.watch` for imperative subscriptions, but prefer `ref.watch` for most cases as `ref.listen` is more error-prone.
-7. It is safe to use `ref.listen` during the build phase; listeners are automatically cleaned up when the provider is recomputed.
-8. Use the return value of `ref.listen` to manually remove listeners when needed.
-9. Use `ref.read` only when you cannot use `ref.watch`, such as inside Notifier methods; `ref.read` does not listen to provider changes.
-10. Be cautious with `ref.read`, as providers not being listened to may destroy their state if not actively watched.
+### Naming Conventions
+1. Name events in the past tense, as they represent actions that have already occurred from the bloc's perspective.
+2. Use the format: `BlocSubject` + optional noun + verb (event). Example: `LoginButtonPressed`, `UserProfileLoaded`
+3. For initial load events, use: `BlocSubjectStarted`. Example: `AuthenticationStarted`
+4. The base event class should be named: `BlocSubjectEvent`.
+5. Name states as nouns, since a state is a snapshot at a particular point in time.
+6. When using subclasses for states, use the format: `BlocSubject` + `Initial` | `Success` | `Failure` | `InProgress`. Example: `LoginInitial`, `LoginSuccess`, `LoginFailure`, `LoginInProgress`
+7. For single-class states, use: `BlocSubjectState` with a `BlocSubjectStatus` enum (`initial`, `success`, `failure`, `loading`). Example: `LoginState` with `LoginStatus.initial`
+8. The base state class should always be named: `BlocSubjectState`.
 
-### Auto Dispose & State Disposal
-1. By default, with code generation, provider state is destroyed when the provider stops being listened to for a full frame.
-2. Opt out of automatic disposal by setting `keepAlive: true` (codegen) or using `ref.keepAlive()` (manual).
-3. When not using code generation, state is not destroyed by default; enable `.autoDispose` on providers to activate automatic disposal.
-4. Always enable automatic disposal for providers that receive parameters to prevent memory leaks from unused parameter combinations.
-5. State is always destroyed when a provider is recomputed, regardless of auto dispose settings.
-6. Use `ref.onDispose` to register cleanup logic that runs when provider state is destroyed; do not trigger side effects or modify providers inside `onDispose`.
-7. Use `ref.onCancel` to react when the last listener is removed, and `ref.onResume` when a new listener is added after cancellation.
-8. Call `ref.onDispose` multiple times if needed—once per disposable object—to ensure all resources are cleaned up.
-9. Use `ref.invalidate` to manually force the destruction of a provider's state; if the provider is still listened to, a new state will be created.
-10. Use `ref.invalidateSelf` inside a provider to force its own destruction and immediate recreation.
-11. When invalidating parameterized providers, you can invalidate a specific parameter or all parameter combinations.
-12. Use `ref.keepAlive` for fine-tuned control over state disposal; revert to automatic disposal using the return value of `ref.keepAlive`.
-13. To keep provider state alive for a specific duration, combine a `Timer` with `ref.keepAlive` and dispose after the timer completes.
-14. Consider using `ref.onCancel` and `ref.onResume` to implement custom disposal strategies, such as delayed disposal after a provider is no longer listened to.
+### Modeling State
+1. Extend `Equatable` for all state classes to enable value equality.
+2. Annotate state classes with `@immutable` to enforce immutability.
+3. Implement a `copyWith` method in state classes for easy state updates.
+4. Use `const` constructors for state classes when possible.
+5. Use a single concrete class with a status enum for simple, non-exclusive states or when many properties are shared.
+6. In the single-class approach, make properties nullable and handle them based on the current status.
+7. Use a sealed class with subclasses for well-defined, exclusive states.
+8. Store shared properties in the sealed base class; keep state-specific properties in subclasses.
+9. Use exhaustive `switch` statements to handle all possible state subclasses.
+10. Prefer the sealed class approach for type safety and exhaustiveness; prefer the single-class approach for conciseness and flexibility.
+11. Always pass all relevant properties to the `props` getter when using Equatable in state classes.
+12. When using Equatable, copy List or Map properties with `List.of` or `Map.of` to ensure value equality.
+13. To retain previous data after an error, use a single state class with nullable data and error fields.
+14. Emit a new instance of the state each time you want the UI to update; do not reuse the same instance.
 
-### Eager Initialization
-1. Providers are initialized lazily by default; they are only created when first used.
-2. There is no built-in way to mark a provider for eager initialization due to Dart's tree shaking.
-3. To eagerly initialize a provider, explicitly read or watch it at the root of your application (e.g., in a `Consumer` placed directly under `ProviderScope`).
-4. Place the eager initialization logic in a public widget (such as `MyApp`) rather than in `main()` to ensure consistent test behavior.
-5. Eagerly initializing a provider in a dedicated widget will not cause your entire app to rebuild when the provider changes; only the initialization widget will rebuild.
-6. Handle loading and error states for eagerly initialized providers as you would in any `Consumer`, e.g., by returning a loading indicator or error widget.
-7. Use `AsyncValue.requireValue` in widgets to read the data directly and throw a clear exception if the value is not ready, instead of handling loading/error states everywhere.
-8. Avoid creating multiple providers or using overrides solely to hide loading/error states; this adds unnecessary complexity and is discouraged.
+### Bloc Concepts
+1. Use `Cubit` for simple state management without events; use `Bloc` for more complex, event-driven state management.
+2. Define the initial state by passing it to the superclass in both `Cubit` and `Bloc`.
+3. Only use the `emit` method inside a `Cubit` or `Bloc`; do not call it externally.
+4. UI components should listen to state changes and update only in response to new states.
+5. Duplicate states (`state == nextState`) are ignored; no state change will occur.
+6. Override `onChange` in `Cubit` or `Bloc` to observe all state changes.
+7. Use a custom `BlocObserver` to observe all state changes and errors globally.
+8. Override `onError` in both `Cubit`/`Bloc` and `BlocObserver` for error handling.
+9. Add events to a `Bloc` in response to user actions or lifecycle events.
+10. Use `onTransition` in `Bloc` to observe the full transition (event, current state, next state).
+11. Use event transformers (e.g., debounce, throttle) in `Bloc` for advanced event processing.
+12. Prefer `Cubit` for simplicity and less boilerplate; prefer `Bloc` for traceability and advanced event handling.
+13. If unsure, start with `Cubit` and refactor to `Bloc` if needed as requirements grow.
+14. Initialize `BlocObserver` in `main.dart` for debugging and logging.
+15. Always keep business logic out of UI widgets; only interact with cubits/blocs via events or public methods.
+16. Internal events in a bloc should be private and only used for real-time updates from repositories.
+17. Use custom event transformers for internal events if needed.
+18. When exposing public methods on a cubit, only use them to trigger state changes and return `void` or `Future<void>`.
+19. For blocs, avoid exposing custom public methods; trigger state changes by adding events.
+20. When using `BlocProvider.of(context)`, call it within a child `BuildContext`, not the same context where the bloc was provided.
 
-### First Provider & Network Requests
-1. Always wrap your app with `ProviderScope` at the root (directly in `runApp`) to enable Riverpod for the entire application.
-2. Place business logic such as network requests inside providers; use `Provider`, `FutureProvider`, or `StreamProvider` depending on the return type.
-3. Providers are lazy—network requests or logic inside a provider are only executed when the provider is first read.
-4. Define provider variables as `final` and at the top level (global scope).
-5. Use code generators like Freezed or json_serializable for models and JSON parsing to reduce boilerplate.
-6. Use `Consumer` or `ConsumerWidget` in your UI to access providers via a `ref` object.
-7. Handle loading and error states in the UI by using the `AsyncValue` API returned by `FutureProvider` and `StreamProvider`.
-8. Multiple widgets can listen to the same provider; the provider will only execute once and cache the result.
-9. Use `ConsumerWidget` or `ConsumerStatefulWidget` to reduce code indentation and improve readability over using a `Consumer` widget inside a regular widget.
-10. To use both hooks and providers in the same widget, use `HookConsumerWidget` or `StatefulHookConsumerWidget` from `flutter_hooks` and `hooks_riverpod`.
-11. Always install and use `riverpod_lint` to enable IDE refactoring and enforce best practices.
-12. Do not put `ProviderScope` inside `MyApp`; it must be the top-level widget passed to `runApp`.
-13. When handling network requests, always render loading and error states gracefully in the UI.
-14. Do not re-execute network requests on widget rebuilds; Riverpod ensures the provider is only executed once unless explicitly invalidated.
+### Architecture
+1. Separate your features into three layers: Presentation, Business Logic, and Data.
+2. The Data Layer is responsible for retrieving and manipulating data from sources such as databases or network requests.
+3. Structure the Data Layer into repositories (wrappers around data providers) and data providers (perform CRUD operations).
+4. The Business Logic Layer responds to input from the presentation layer and communicates with repositories to build new states.
+5. The Presentation Layer renders UI based on bloc states and handles user input and lifecycle events.
+6. Inject repositories into blocs via constructors; blocs should not directly access data providers.
+7. Avoid direct bloc-to-bloc communication to prevent tight coupling.
+8. To coordinate between blocs, use BlocListener in the presentation layer to listen to one bloc and add events to another.
+9. For shared data, inject the same repository into multiple blocs; let each bloc listen to repository streams independently.
+10. Always strive for loose coupling between architectural layers and components.
+11. Structure your project consistently and intentionally; there is no single right way.
 
-### Passing Arguments to Providers
-1. Use provider "families" to pass arguments to providers; add `.family` after the provider type and specify the argument type.
-2. When using code generation, add parameters directly to the annotated function (excluding `ref`).
-3. Always enable `autoDispose` for providers that receive parameters to avoid memory leaks.
-4. When consuming a provider that takes arguments, call it as a function with the desired parameters (e.g., `ref.watch(myProvider(param))`).
-5. You can listen to the same provider with different arguments simultaneously; each argument combination is cached separately.
-6. The equality (`==`) of provider parameters determines caching—ensure parameters have consistent and correct equality semantics.
-7. Avoid passing objects that do not override `==` (such as plain `List` or `Map`) as provider parameters; use `const` collections, custom classes with proper equality, or Dart 3 records.
-8. Use the `provider_parameters` lint rule from `riverpod_lint` to catch mistakes with parameter equality.
-9. For multiple parameters, prefer code generation or Dart 3 records, as records naturally override `==` and are convenient for grouping arguments.
-10. If two widgets consume the same provider with the same parameters, only one computation/network request is made; with different parameters, each is cached separately.
+### Flutter Bloc Concepts
+1. Use `BlocBuilder` to rebuild widgets in response to bloc or cubit state changes; the builder function must be pure.
+2. Use `BlocListener` to perform side effects (e.g., navigation, dialogs) in response to state changes.
+3. Use `BlocConsumer` when you need both `BlocBuilder` and `BlocListener` functionality in a single widget.
+4. Use `BlocProvider` to provide blocs to widget subtrees via dependency injection.
+5. Use `MultiBlocProvider` to provide multiple blocs and avoid deeply nested providers.
+6. Use `BlocSelector` to rebuild widgets only when a selected part of the state changes.
+7. Use `MultiBlocListener` to listen for state changes and trigger side effects; avoid nesting listeners by using `MultiBlocListener`.
+8. Use `RepositoryProvider` to provide repositories or services to the widget tree.
+9. Use `MultiRepositoryProvider` to provide multiple repositories and avoid nesting.
+10. Use `context.read<T>()` to access a bloc or repository without listening for changes (e.g., in callbacks).
+11. Use `context.watch<T>()` inside the build method to listen for changes and trigger rebuilds.
+12. Use `context.select<T, R>()` to listen for changes in a specific part of a bloc’s state.
+13. Avoid using `context.watch` or `context.select` at the root of the build method to prevent unnecessary rebuilds.
+14. Prefer `BlocBuilder` and `BlocSelector` over `context.watch` and `context.select` for explicit rebuild scoping.
+15. Scope rebuilds using `Builder` when using `context.watch` or `context.select` for multiple blocs.
+16. Handle all possible cubit/bloc states explicitly in the UI (e.g., empty, loading, error, populated).
 
-### FAQ & Best Practices
-1. Use `ref.refresh(provider)` when you want to both invalidate a provider and immediately read its new value; use `ref.invalidate(provider)` if you only want to invalidate without reading the value.
-2. Always use the return value of `ref.refresh`; ignoring it will trigger a lint warning.
-3. If a provider is invalidated while not being listened to, it will not update until it is listened to again.
-4. Do not try to share logic between `Ref` and `WidgetRef`; move shared logic into a `Notifier` and call methods on the notifier via `ref.read(yourNotifierProvider.notifier).yourMethod()`.
-5. Prefer `Ref` for business logic and avoid relying on `WidgetRef`, which ties logic to the UI layer.
-6. Extend `ConsumerWidget` instead of using raw `StatelessWidget` when you need access to providers in the widget tree, due to limitations of `InheritedWidget`.
-7. `InheritedWidget` cannot implement a reliable "on change" listener or track when widgets stop listening, which is required for Riverpod's advanced features.
-8. Do not expect to reset all providers at once; instead, make providers that should reset depend on a "user" or "session" provider and reset that dependency.
-9. `hooks_riverpod` and `flutter_hooks` are versioned independently; always add both as dependencies if using hooks.
-10. Riverpod uses `identical` instead of `==` to filter updates for performance reasons, especially with code-generated models; override `updateShouldNotify` on Notifiers to change this behavior.
-11. If you encounter "Cannot use `ref` after the widget was disposed", ensure you check `context.mounted` before using `ref` after an `await` in an async callback.
+### Testing
+1. Add the `test` and `bloc_test` packages to your dev dependencies for bloc testing.
+2. Organize tests into groups to share setup and teardown logic.
+3. Create a dedicated test file (e.g., `counter_bloc_test.dart`) for each bloc.
+4. Import the `test` and `bloc_test` packages in your test files.
+5. Use `setUp` to initialize bloc instances before each test and `tearDown` to clean up after tests.
+6. Test the bloc’s initial state before testing transitions.
+7. Use the `blocTest` function to test bloc state transitions in response to events.
+8. Assert the expected sequence of emitted states for each bloc event.
+9. Keep tests concise, focused, and easy to maintain to ensure confidence in refactoring.
+10. Mock cubits/blocs in widget tests to verify UI behavior for all possible states.
 
-### Provider Observers (Logging & Error Reporting)
-1. Use a `ProviderObserver` to listen to all events in the provider tree for logging, analytics, or error reporting.
-2. Extend the `ProviderObserver` class and override its methods to respond to provider lifecycle events:
-   - `didAddProvider`: called when a provider is added to the tree.
-   - `didUpdateProvider`: called when a provider is updated.
-   - `didDisposeProvider`: called when a provider is disposed.
-   - `providerDidFail`: called when a synchronous provider throws an error.
-3. Register your observer(s) by passing them to the `observers` parameter of `ProviderScope` (for Flutter apps) or `ProviderContainer` (for pure Dart).
-4. You can register multiple observers if needed by providing a list to the `observers` parameter.
-5. Use observers to integrate with remote error reporting services, log provider state changes, or trigger custom analytics.
 
-### Performing Side Effects
-1. Use Notifiers (`Notifier`, `AsyncNotifier`, etc.) to expose methods for performing side effects (e.g., POST, PUT, DELETE) and modifying provider state.
-2. Always define provider variables as `final` and at the top level (global scope).
-3. Choose the provider type (`NotifierProvider`, `AsyncNotifierProvider`, etc.) based on the return type of your logic.
-4. Use provider modifiers like `autoDispose` and `family` as needed for cache management and parameterization.
-5. Expose public methods on Notifiers for UI to trigger state changes or side effects.
-6. In UI event handlers (e.g., button `onPressed`), use `ref.read` to call Notifier methods; avoid using `ref.watch` for imperative actions.
-7. After performing a side effect, update the UI state by:
-   - Setting the new state directly if the server returns the updated data.
-   - Calling `ref.invalidateSelf()` to refresh the provider and re-fetch data.
-   - Manually updating the local cache if the server does not return the new state.
-8. When updating the local cache, prefer immutable state, but mutable state is possible if necessary.
-9. Always handle loading and error states in the UI when performing side effects.
-10. Use progress indicators and error messages to provide feedback for pending or failed operations.
-11. Be aware of the pros and cons of each update approach:
-    - Direct state update: most up-to-date but depends on server implementation.
-    - Invalidate and refetch: always consistent with server, but may incur extra network requests.
-    - Manual cache update: efficient, but risks state divergence from server.
-12. Use hooks (`flutter_hooks`) or `StatefulWidget` to manage local state (e.g., pending futures) for showing spinners or error UI during side effects.
-13. Do not perform side effects directly inside provider constructors or build methods; expose them via Notifier methods and invoke from the UI layer.
+### Mocktail Rules
 
-### Testing Providers
-1. Always create a new `ProviderContainer` (unit tests) or `ProviderScope` (widget tests) for each test to avoid shared state between tests. Use a utility like `createContainer()` to set up and automatically dispose containers (see `/references/riverpod/testing/create_container.dart`).
-2. In unit tests, never share `ProviderContainer` instances between tests. Example:
-   ```dart
-   final container = createContainer();
-   expect(container.read(provider), equals('some value'));
-   ```
-3. In widget tests, always wrap your widget tree with `ProviderScope` when using `tester.pumpWidget`. Example:
-   ```dart
-   await tester.pumpWidget(
-     const ProviderScope(child: YourWidgetYouWantToTest()),
-   );
-   ```
-4. Obtain a `ProviderContainer` in widget tests using `ProviderScope.containerOf(BuildContext)`. Example:
-   ```dart
-   final element = tester.element(find.byType(YourWidgetYouWantToTest));
-   final container = ProviderScope.containerOf(element);
-   ```
-5. After obtaining the container, you can read or interact with providers as needed for assertions. Example:
-   ```dart
-   expect(container.read(provider), 'some value');
-   ```
-6. For providers with `autoDispose`, prefer `container.listen` over `container.read` to prevent the provider's state from being disposed during the test.
-7. Use `container.read` to read provider values and `container.listen` to listen to provider changes in tests.
-8. Use the `overrides` parameter on `ProviderScope` or `ProviderContainer` to inject mocks or fakes for providers in your tests.
-9. Use `container.listen` to spy on changes in a provider for assertions or to combine with mocking libraries.
-10. Await asynchronous providers in tests by reading the `.future` property (for `FutureProvider`) or listening to streams.
-11. Prefer mocking dependencies (such as repositories) used by Notifiers rather than mocking Notifiers directly.
-12. If you must mock a Notifier, subclass the original Notifier base class instead of using `implements` or `with Mock`.
-13. Place Notifier mocks in the same file as the Notifier being mocked if code generation is used, to access generated classes.
-14. Use the `overrides` parameter to swap out Notifiers or providers for mocks or fakes in tests.
-15. Keep all test-specific setup and teardown logic inside the test body or test utility functions. Avoid global state.
-16. Ensure your test environment closely matches your production environment for reliable results.
-
-# Code Conventions
-
-### Naming convention
-- Use English for naming variables, classes, methods, etc.F
-- Prefix `fetch` for methods returning a Future.
-- Prefix `watch` for methods returning a Stream.
-- Use de suffix `Model` for classes that maps a json to an Object. Generally located in `/lib/src/features/feature/data/models`.
-
-### Error Management strategy 🤯
-- Add validations to every text input field.
-- Apply tristate pattern (loading, error, data) for every future.
-- Always provide visual loading information to the user and be sure to prevent this action from being fired again.
-- Always provide visual error information to the user.
-
-### Widget Creation strategy ✨
-- Prefer `Stateless` for static widgets.
-- Prefer `Stateful` for animated widgets.
-- Prefer `Stateful` atomic Widgets to wrap Broker Widgets. [Example code](https://github.com/ueno-tecnologia-org/poc_microapp_prestamos/blob/main/lib/src/features/prestamos/presentation/widgets/another_squad_widget.dart).
-- Prefer always separate the Raw Widget from the App State dependent Widget. [Example code](https://github.com/ueno-tecnologia-org/poc_microapp_prestamos/blob/main/lib/src/features/prestamos/presentation/screens/prestamo_screen.dart).
-
-### Do ✅ and Don'ts 🚫 
-- 🚫 Extract Widget as class functions. Self explanatory code test can be found [here](https://github.com/ueno-tecnologia-org/ueno_app_core/blob/main/test/widget_test.dart)
-- 🚫 Create one line methods that make dificult readability and maintainability.
-- 🚫 Place logic pieces of code on the UI side.
-- 🚫 Mix App State with Ephemeral State. Difference between both can be found [here](https://docs.flutter.dev/data-and-backend/state-mgmt/ephemeral-vs-app?gclid=Cj0KCQiAnfmsBhDfARIsAM7MKi1Bta0xmC7mUB72Jn0vq3h0ZbsF4xjh8FboNrmUZv7aZWu-ptXKLrcaAvjAEALw_wcB&gclsrc=aw.ds).
-- 🚫 Create private widgets classes, they are not testable. The exception could be the State class of the Stateful widget.
-- 🚫 Deliver code without tests.
-- 🚫 Don't use non-nullable operator without previous check. [Example code](https://github.com/ueno-tecnologia-org/docs/blob/main/docs/flutter/example_codes/non_nullable_operator_safe_use.dart).
-- 🚫 Don't use `Equatable` with non App State entity classes.
-- ✅ Use localized text and 🚫 use hardcoded text to show user information.
-- ✅ Use @riverpod annotation with Futures or Streams or return AsynValue<T>.
-- ✅ Use `select` to get a value from a provider to optimez performance. More info [here](https://riverpod.dev/docs/advanced/select).
-- ✅ Use `const` for static widgets.
-- ✅ Use `final` for widgets that will change its state.
-- ✅ Use `final` for variables that will not change its state.
-- ✅ Use `GoRouter.of(context).push()` instead `context.push()` to navigate to another screen. Same with `GoRouter.of(context).pop()` and `GoRouter.of(context).go()`.
-- ✅ Always add `toEntity` and override `toString` method on the Model classes. [Example code](https://github.com/ueno-tecnologia-org/poc_microapp_prestamos/blob/e24760cac1ed777fd43b3dece6ea5ab01e44fa14/lib/src/features/prestamos/data/models/prestamo_model.dart#L33)
-
-### Comments strategy 💬
-- Use [BetterComments](https://marketplace.visualstudio.com/items?itemName=aaron-bond.better-comments) extension:
-
-      //* to help structure views with component names.
-      //? to mark something to ask.
-      //! to prevent the developer of something.
-
-### Big PR?? 😱
-- It's ok, try to comment out the changes you made to make reviewer's lives easier.	
-- Add all the requirements or evidence of the developed task.
-
-### Test strategy 🔬
-- Isolated tests: all the mock classes should be in the same file. [Example code](https://github.com/ueno-tecnologia-org/poc_app_core_dependencies/blob/main/test/src/http/infrastructure/client_test.dart).
-
-### TODO strategy 😮‍💨
-- Add a story for every TODO. `// TODO(UONB-XXXX): this should be refactored`
+1. Use a `Fake` when you need a lightweight, custom implementation of a class for testing, especially if you only need to override a subset of methods or provide specific behavior.
+2. Use a `Mock` when you need to verify interactions (method calls, arguments, call counts) or need to stub method responses dynamically during tests.
+3. Use `registerFallbackValue` to register a default value for a type that is used as an argument in a mock method, especially when the type is not nullable and is required for argument matching (e.g., `registerFallbackValue(MyCustomEvent())`).
+4. Extend `Mock` to create a mock class for the class or interface you want to mock.
+5. Use `when(() => mock.method()).thenReturn(value)` to stub method calls, and `thenThrow(error)` to stub errors.
+6. Use `when(() => mock.method()).thenAnswer((invocation) => value)` for dynamic responses.
+7. Use `verify(() => mock.method())` to check if a method was called; use `verifyNever(() => mock.method())` to check it was never called.
+8. Use `verify(() => mock.method()).called(n)` to check the exact number of invocations.
+9. Use argument matchers like `any()`, `captureAny()`, and `captureThat()` for flexible verification and stubbing.
+10. Always register fallback values for custom types used with argument matchers before using them in stubs or verifications.
+11. Prefer using real objects over mocks when possible; if not, use a tested fake implementation (`extends Fake`) over a mock.
+12. Never add implementation or `@override` methods to a class extending `Mock`.
+13. Only use mocks if your test asserts on interactions (calls to `verify`); otherwise, prefer real or fake objects.
+14. Always stub async methods (returning `Future` or `Future<void>`) with `thenAnswer((_) async {})` or `thenReturn(Future.value(...))`.
+15. Always include all named parameters in both `when` and `verify` calls, even if you only care about one. Use `any(named: 'paramName')` for those you don't care about.
+16. If a method has default values for named parameters, Mocktail still expects all of them to be matched in both stubs and verifies.
+17. Use `any()` for positional parameters in `when`/`verify` if you don't care about the exact instance.
+18. Register fallback values for any custom types that are used with argument matchers before using them in your tests.
+19. Stub every method you expect to be called, even if it's not the focus of your test, to prevent runtime errors.
+20. When matching string outputs, make sure you understand what `.toString()` returns for the type you are using.
