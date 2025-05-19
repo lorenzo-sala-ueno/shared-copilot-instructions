@@ -105,7 +105,7 @@
 3. Keep build methods simple and focused.
 
 ### State Management
-1. Choose appropriate state management based on complexity.
+1. Choose Riverpod as the default state management solution.
 2. Avoid unnecessary `StatefulWidget`s.
 3. Keep state as local as possible.
 
@@ -474,4 +474,57 @@ flutter pub add dev:riverpod_lint
 15. Keep all test-specific setup and teardown logic inside the test body or test utility functions. Avoid global state.
 16. Ensure your test environment closely matches your production environment for reliable results.
 
-TOTAL CHAR COUNT:    15993
+# Code Conventions
+
+### Naming convention
+- Use English for naming variables, classes, methods, etc.F
+- Prefix `fetch` for methods returning a Future.
+- Prefix `watch` for methods returning a Stream.
+- Use de suffix `Model` for classes that maps a json to an Object. Generally located in `/lib/src/features/feature/data/models`.
+
+### Error Management strategy 🤯
+- Add validations to every text input field.
+- Apply tristate pattern (loading, error, data) for every future.
+- Always provide visual loading information to the user and be sure to prevent this action from being fired again.
+- Always provide visual error information to the user.
+
+### Widget Creation strategy ✨
+- Prefer `Stateless` for static widgets.
+- Prefer `Stateful` for animated widgets.
+- Prefer `Stateful` atomic Widgets to wrap Broker Widgets. [Example code](https://github.com/ueno-tecnologia-org/poc_microapp_prestamos/blob/main/lib/src/features/prestamos/presentation/widgets/another_squad_widget.dart).
+- Prefer always separate the Raw Widget from the App State dependent Widget. [Example code](https://github.com/ueno-tecnologia-org/poc_microapp_prestamos/blob/main/lib/src/features/prestamos/presentation/screens/prestamo_screen.dart).
+
+### Do ✅ and Don'ts 🚫 
+- 🚫 Extract Widget as class functions. Self explanatory code test can be found [here](https://github.com/ueno-tecnologia-org/ueno_app_core/blob/main/test/widget_test.dart)
+- 🚫 Create one line methods that make dificult readability and maintainability.
+- 🚫 Place logic pieces of code on the UI side.
+- 🚫 Mix App State with Ephemeral State. Difference between both can be found [here](https://docs.flutter.dev/data-and-backend/state-mgmt/ephemeral-vs-app?gclid=Cj0KCQiAnfmsBhDfARIsAM7MKi1Bta0xmC7mUB72Jn0vq3h0ZbsF4xjh8FboNrmUZv7aZWu-ptXKLrcaAvjAEALw_wcB&gclsrc=aw.ds).
+- 🚫 Create private widgets classes, they are not testable. The exception could be the State class of the Stateful widget.
+- 🚫 Deliver code without tests.
+- 🚫 Don't use non-nullable operator without previous check. [Example code](https://github.com/ueno-tecnologia-org/docs/blob/main/docs/flutter/example_codes/non_nullable_operator_safe_use.dart).
+- 🚫 Don't use `Equatable` with non App State entity classes.
+- ✅ Use localized text and 🚫 use hardcoded text to show user information.
+- ✅ Use @riverpod annotation with Futures or Streams or return AsynValue<T>.
+- ✅ Use `select` to get a value from a provider to optimez performance. More info [here](https://riverpod.dev/docs/advanced/select).
+- ✅ Use `const` for static widgets.
+- ✅ Use `final` for widgets that will change its state.
+- ✅ Use `final` for variables that will not change its state.
+- ✅ Use `GoRouter.of(context).push()` instead `context.push()` to navigate to another screen. Same with `GoRouter.of(context).pop()` and `GoRouter.of(context).go()`.
+- ✅ Always add `toEntity` and override `toString` method on the Model classes. [Example code](https://github.com/ueno-tecnologia-org/poc_microapp_prestamos/blob/e24760cac1ed777fd43b3dece6ea5ab01e44fa14/lib/src/features/prestamos/data/models/prestamo_model.dart#L33)
+
+### Comments strategy 💬
+- Use [BetterComments](https://marketplace.visualstudio.com/items?itemName=aaron-bond.better-comments) extension:
+
+      //* to help structure views with component names.
+      //? to mark something to ask.
+      //! to prevent the developer of something.
+
+### Big PR?? 😱
+- It's ok, try to comment out the changes you made to make reviewer's lives easier.	
+- Add all the requirements or evidence of the developed task.
+
+### Test strategy 🔬
+- Isolated tests: all the mock classes should be in the same file. [Example code](https://github.com/ueno-tecnologia-org/poc_app_core_dependencies/blob/main/test/src/http/infrastructure/client_test.dart).
+
+### TODO strategy 😮‍💨
+- Add a story for every TODO. `// TODO(UONB-XXXX): this should be refactored`
