@@ -137,9 +137,11 @@
     │   │   │   ├── user_model.dart
     │   │   │   └── models.dart
     │   ├── presentation/
-    │   │   ├── providers/
-    │   │   │   ├── user_provider.dart
-    │   │   │   └── providers.dart
+    │   │   ├── bloc/
+    │   │   │   ├── auth_bloc.dart
+    │   │   │   ├── auth_event.dart
+    │   │   │   ├── auth_state.dart
+    │   │   │   └── bloc.dart
     │   │   ├── screens/
     │   │   │   ├── login_screen.dart
     │   │   │   └── screens.dart
