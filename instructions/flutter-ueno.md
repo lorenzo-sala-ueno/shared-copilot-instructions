@@ -151,15 +151,15 @@
     │   └── auth.dart
     ```
 3. Only allow communication between adjacent layers; the UI layer should not access the data layer directly, and vice versa.
-4. Clearly define the responsibilities, boundaries, and interfaces of each layer and component (Screens, Providers, Repositories, Datasources).
+4. Clearly define the responsibilities, boundaries, and interfaces of each layer and component (Screens, Blocs, Repositories, Datasources).
 5. Further divide each layer into components with specific responsibilities and well-defined interfaces.
 6. In the UI Layer, use Screens to describe how to present data to the user; keep logic minimal and only UI-related.
-7. Pass events from Screens to Providers in response to user interactions.
-8. In Providers, contain logic to convert app data into UI state and maintain the current state needed by the view.
-9. Expose callbacks (commands) from Providers to Screens and retrieve/transform data from repositories.
+7. Pass events from Screens to Blocs in response to user interactions.
+8. In Blocs, contain logic to convert app data into UI state and maintain the current state needed by the view.
+9. Expose callbacks (commands) from Blocs to Screens and retrieve/transform data from repositories.
 10. In the Data Layer, use Repositories as the single source of truth (SSOT) for model data and to handle business logic such as caching, error handling, and refreshing data.
 11. Only the SSOT class (usually the repository) should be able to mutate its data; all other classes should read from it.
-12. Repositories should transform raw data from Datasources into domain models and output data consumed by Providers.
+12. Repositories should transform raw data from Datasources into domain models and output data consumed by Blocs.
 13. Use Datasources to wrap API endpoints and expose asynchronous response objects; Datasources should isolate data-loading and hold no state.
 14. Use dependency injection to provide components with their dependencies, enabling testability and flexibility.
 
@@ -167,7 +167,7 @@
 1. Follow unidirectional data flow: state flows from the data layer through the logic layer to the UI layer, and events from user interaction flow in the opposite direction.
 2. Data changes should always happen in the SSOT (data layer), not in the UI or logic layers.
 3. The UI should always reflect the current (immutable) state; trigger UI rebuilds only in response to state changes.
-4. Screens should contain as little logic as possible and be driven by state from Providers.
+4. Screens should contain as little logic as possible and be driven by state from Blocs.
 
 ### Best Practices
 1. Strongly recommend following separation of concerns and layered architecture.
